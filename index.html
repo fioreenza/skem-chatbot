@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chatbot - SKEM ITS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: "Poppins", sans-serif;
+        }
+        /* Mengaplikasikan custom scrollbar pada area chat paling luar */
+        #chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        #chat-container::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        #chat-container::-webkit-scrollbar-thumb:hover {
+            background: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 h-screen flex flex-col font-sans">
+
+    <!-- HEADER -->
+    <header class="border-b border-slate-200 py-4 px-6 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div>
+                    <h1 class="font-semibold text-slate-800 text-base leading-tight">RAG Chatbot SKEM ITS</h1>
+                </div>
+            </div>
+    </header>
+
+    <!-- AREA CHAT (Lebar penuh agar scrollbar berada di paling luar layar) -->
+    <main id="chat-container" class="flex-1 overflow-y-auto w-full">
+        <!-- WRAPPER DALAM (Membatasi konten agar tetap berada di tengah dengan rapi) -->
+        <div id="chat-wrapper" class="max-w-4xl w-full mx-auto flex flex-col items-center justify-center p-4 md:p-6 space-y-6 min-h-full">
+            
+            <!-- Welcome Screen -->
+            <div id="welcome-screen" class="w-full max-w-3xl mx-auto flex flex-col items-center justify-center text-center px-4">
+                <!-- Judul Utama -->
+                <h1 class="text-slate-950 text-3xl md:text-4xl font-bold tracking-tight leading-tight">
+                    Halo, saya <span class="text-blue-600 font-extrabold">Asisten SKEM ITS</span>
+                </h1>
+                
+                <!-- Subtitle -->
+                <p class="text-slate-600 text-xs md:text-sm mt-4 max-w-lg leading-relaxed">
+                    Tanyakan informasi seputar Satuan Kegiatan Ekstra Kurikuler Mahasiswa (SKEM), saya akan memberikan jawaban beserta rujukan dokumennya.
+                </p>
+
+                <!-- Kotak Pertanyaan Cepat (Quick Suggestions) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full mt-10 text-left">
+                    <button onclick="pilihSaran('Apa syarat kelulusan SKEM?')" class="p-4 bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-300 rounded-xl transition-all duration-200 group text-slate-800 text-sm flex flex-col justify-between h-24 shadow-sm">
+                        <span class="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Syarat Kelulusan SKEM</span>
+                        <span class="text-xs text-slate-500 leading-snug">Informasi tentang jumlah kredit dan nilai minimum SKEM untuk kelulusan.</span>
+                    </button>
+                    <button onclick="pilihSaran('Bagaimana langkah-langkah mengajukan SKEM?')" class="p-4 bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-300 rounded-xl transition-all duration-200 group text-slate-800 text-sm flex flex-col justify-between h-24 shadow-sm">
+                        <span class="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Langkah Pengajuan SKEM</span>
+                        <span class="text-xs text-slate-500 leading-snug">Panduan langkah demi langkah untuk mengajukan SKEM dengan benar.</span>
+                    </button>
+                    <button onclick="pilihSaran('Apa saja kategori kegiatan yang dapat memperoleh poin SKEM?')" class="p-4 bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-300 rounded-xl transition-all duration-200 group text-slate-800 text-sm flex flex-col justify-between h-24 shadow-sm">
+                        <span class="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Kategori Kegiatan</span>
+                        <span class="text-xs text-slate-500 leading-snug">Daftar jenis kegiatan organisasi, prestasi ilmiah, kepanitiaan, dll.</span>
+                    </button>
+                    <button onclick="pilihSaran('Bagaimana jika saya kehilangan atau tidak memiliki sertifikat fisik, surat tugas, atau foto kegiatan?')" class="p-4 bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-300 rounded-xl transition-all duration-200 group text-slate-800 text-sm flex flex-col justify-between h-24 shadow-sm">
+                        <span class="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Berkas Hilang / Tidak Ada</span>
+                        <span class="text-xs text-slate-500 leading-snug">Solusi jika dokumen fisik tidak tersedia, termasuk alternatif bukti digital.</span>
+                    </button>
+                </div>
+            </div>  
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="p-6">
+        <div class="max-w-4xl mx-auto flex items-start space-x-3 bg-white p-6 shadow-sm border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
+            <input 
+                type="text" 
+                id="user-input" 
+                placeholder="Ketik pertanyaan Anda tentang SKEM di sini..." 
+                class="flex-1 ring-offset-0 focus:outline-none"
+                onkeydown="handleKeyPress(event)"
+            />
+            <button 
+                onclick="kirimPertanyaan()" 
+                class="bg-slate-800 hover:bg-slate-600 text-white font-medium p-2 rounded-md text-sm transition-all shadow-md active:scale-95"
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-send-icon lucide-send"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+            </button>
+        </div>
+    </footer>
+
+    <!-- LOGIKA JAVASCRIPT -->
+    <script>
+        const chatContainer = document.getElementById('chat-container'); // Container untuk scroll
+        const chatWrapper = document.getElementById('chat-wrapper');     // Wrapper untuk menampung balon chat di tengah
+        const userInput = document.getElementById('user-input');
+        const API_URL = "http://127.0.0.1:8000/tanya"; // Alamat backend FastAPI Anda
+
+        // 1. Variabel global untuk menyimpan riwayat chat dari frontend
+        let riwayatChat = [];
+
+        // Fungsi pembantu untuk membuat auto-scroll ke bawah saat ada pesan baru
+        function scrollToBottom() {
+            chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+        // Menangkap tombol Enter
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                kirimPertanyaan();
+            }
+        }
+
+        // Fungsi untuk mengklik saran pertanyaan secara cepat
+        function pilihSaran(pertanyaan) {
+            userInput.value = pertanyaan;
+            kirimPertanyaan();
+        }
+
+        // Fungsi utama mengirim pertanyaan ke FastAPI
+        async function kirimPertanyaan() {
+            const queryText = userInput.value.trim();
+            if (!queryText) return;
+
+            // Sembunyikan welcome-screen saat chat dimulai & ubah layout container agar mengalir dari atas ke bawah
+            const welcomeScreen = document.getElementById('welcome-screen');
+            if (welcomeScreen) {
+                welcomeScreen.remove();
+                chatWrapper.classList.remove('justify-center', 'items-center');
+                chatWrapper.classList.add('justify-start', 'items-stretch');
+            }
+
+            // 1. Tampilkan pesan user ke layar
+            tambahPesanUser(queryText);
+            userInput.value = ''; // Kosongkan kolom input
+            scrollToBottom();
+
+            // 2. Simpan pertanyaan user ke riwayatChat lokal sebelum dikirim
+            riwayatChat.push({ role: "user", content: queryText });
+
+            // LOG KONSOL FRONTEND: Mengirim data ke API
+            console.log("%c[FRONTEND LOG] Mengirim Data ke FastAPI:", "color: #2563eb; font-weight: bold;");
+            console.log("  - Pertanyaan Saat Ini:", queryText);
+            console.log("  - Riwayat yang Dikirim:", JSON.parse(JSON.stringify(riwayatChat)));
+
+            // 3. Tampilkan loading indicator (efek sedang mengetik)
+            const loadingId = tambahLoading();
+            scrollToBottom();
+
+            try {
+                // 4. Kirim permintaan POST ke Backend FastAPI beserta data riwayatChat
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        pertanyaan: queryText,
+                        riwayat: riwayatChat
+                    })
+                });
+
+                // Hapus loading indicator
+                hapusLoading(loadingId);
+
+                if (!response.ok) {
+                    throw new Error("Gagal mengambil data dari server.");
+                }
+
+                const data = await response.json();
+
+                if (data.status === "success") {
+                    // LOG KONSOL FRONTEND: Respon berhasil diterima
+                    console.log("%c[FRONTEND LOG] Respon Berhasil Diterima:", "color: #16a34a; font-weight: bold;");
+                    console.log("  - Jawaban LLM:", data.jawaban);
+                    console.log("  - Sumber RAG:", data.sumber);
+
+                    // 5. Tampilkan jawaban bot beserta rujukan sumbernya
+                    tambahPesanBot(data.jawaban, data.sumber);
+                    
+                    // 6. Simpan jawaban asisten ke riwayatChat agar terekam untuk obrolan berikutnya
+                    riwayatChat.push({ role: "assistant", content: data.jawaban });
+                    
+                    // Membatasi panjang riwayat (maksimal 12 pesan terakhir) agar tidak melebihi batas token LLM
+                    if (riwayatChat.length > 12) {
+                        riwayatChat.shift();
+                    }
+                } else {
+                    console.warn("%c[FRONTEND LOG] Respon gagal pada pemrosesan server internal.", "color: #ea580c;");
+                    tambahPesanBot("Maaf, terjadi kesalahan pada pemrosesan internal backend.");
+                }
+
+            } catch (error) {
+                hapusLoading(loadingId);
+                console.error("%c[FRONTEND ERROR] Gagal menghubungi backend:", "color: #dc2626; font-weight: bold;", error);
+                tambahPesanBot("Gagal menghubungi server. Pastikan backend FastAPI Anda sudah menyala (run `uvicorn` di terminal).");
+            }
+            
+            scrollToBottom();
+        }
+
+        // Menambahkan gelembung chat user
+        function tambahPesanUser(text) {
+            const messageHtml = `
+                <div class="flex items-start justify-end space-x-3 w-full">
+                    <div class="bg-blue-600 text-white rounded-2xl rounded-tr-none px-4 py-3 shadow-sm max-w-[85%] text-sm font-medium">
+                        ${text}
+                    </div>
+                </div>
+            `;
+            chatWrapper.insertAdjacentHTML('beforeend', messageHtml);
+        }
+
+        // Menambahkan gelembung chat bot beserta daftar rujukan
+        function tambahPesanBot(jawaban, sumber = []) {
+            let rujukanHtml = '';
+
+            // Jika ada sumber rujukan, buat elemen visualnya
+            if (sumber && sumber.length > 0) {
+                rujukanHtml = `
+                    <div class="mt-4 pt-3 border-t border-slate-150">
+                        <p class="text-xs font-bold text-blue-600 mb-2 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="mr-1"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10M6 10h10"/></svg>
+                            Sumber Dokumen Rujukan Resmi:
+                        </p>
+                        <div class="space-y-2">
+                            ${sumber.map(s => `
+                                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs flex items-start gap-2">
+                                    <span class="inline-block bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold border border-blue-100 shrink-0">Hal. ${s.halaman}</span>
+                                    <span class="text-slate-800 italic leading-relaxed">"${s.kutipan}"</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const messageHtml = `
+                <div class="flex items-start space-x-3 w-full">
+                    <div class="bg-blue-50 border border-blue-100 text-blue-600 p-2 rounded-xl shadow-sm shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot-icon lucide-bot"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                    </div>
+                    <div class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-slate-100 max-w-[85%] text-slate-900 text-sm">
+                        <p class="leading-relaxed whitespace-pre-line text-slate-900 font-normal">${jawaban}</p>
+                        ${rujukanHtml}
+                    </div>
+                </div>
+            `;
+            chatWrapper.insertAdjacentHTML('beforeend', messageHtml);
+        }
+
+        // Menampilkan animasi loading/mengetik sederhana
+        function tambahLoading() {
+            const id = 'loading-' + Date.now();
+            const loadingHtml = `
+                <div id="${id}" class="flex items-center space-x-3 w-full">
+                    <div class="bg-blue-50 border border-blue-100 text-blue-600 p-2 rounded-xl shadow-sm shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-bot-icon lucide-bot"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+                    </div>
+                    <div class="bg-white rounded-2xl rounded-tl-none p-4 shadow-sm border border-slate-100 flex items-center space-x-1.5 py-3.5 px-4">
+                        <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                        <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                        <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0.3s"></div>
+                    </div>
+                </div>
+            `;
+            chatWrapper.insertAdjacentHTML('beforeend', loadingHtml);
+            return id;
+        }
+
+        // Menghapus animasi loading setelah respon selesai
+        function hapusLoading(id) {
+            const element = document.getElementById(id);
+            if (element) element.remove();
+        }
+    </script>
+</body>
+</html>
