@@ -62,6 +62,7 @@ Buka File Explorer Anda lalu klik ganda pada file `index.html` untuk membukanya 
 ## Bukti Pengujian
 Berikut adalah bukti pengujian aplikasi chatbot:
 1. **Pengujian Pertanyaan Sederhana**
+   
    ![Pengujian Pertanyaan Sederhana](screenshots/pertanyaan1.png)
    ![Pengujian Pertanyaan Sederhana](screenshots/pertanyaan2.png)
    ![Pengujian Pertanyaan Sederhana](screenshots/pertanyaan3.png)
