@@ -12,7 +12,7 @@
         * {
             font-family: "Poppins", sans-serif;
         }
-        /* Mengaplikasikan custom scrollbar pada area chat paling luar */
+
         #chat-container::-webkit-scrollbar {
             width: 8px;
         }
@@ -39,24 +39,17 @@
             </div>
     </header>
 
-    <!-- AREA CHAT (Lebar penuh agar scrollbar berada di paling luar layar) -->
     <main id="chat-container" class="flex-1 overflow-y-auto w-full">
-        <!-- WRAPPER DALAM (Membatasi konten agar tetap berada di tengah dengan rapi) -->
         <div id="chat-wrapper" class="max-w-4xl w-full mx-auto flex flex-col items-center justify-center p-4 md:p-6 space-y-6 min-h-full">
-            
-            <!-- Welcome Screen -->
             <div id="welcome-screen" class="w-full max-w-3xl mx-auto flex flex-col items-center justify-center text-center px-4">
-                <!-- Judul Utama -->
                 <h1 class="text-slate-950 text-3xl md:text-4xl font-bold tracking-tight leading-tight">
                     Halo, saya <span class="text-blue-600 font-extrabold">Asisten SKEM ITS</span>
                 </h1>
                 
-                <!-- Subtitle -->
                 <p class="text-slate-600 text-xs md:text-sm mt-4 max-w-lg leading-relaxed">
                     Tanyakan informasi seputar Satuan Kegiatan Ekstra Kurikuler Mahasiswa (SKEM), saya akan memberikan jawaban beserta rujukan dokumennya.
                 </p>
 
-                <!-- Kotak Pertanyaan Cepat (Quick Suggestions) -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full mt-10 text-left">
                     <button onclick="pilihSaran('Apa syarat kelulusan SKEM?')" class="p-4 bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-300 rounded-xl transition-all duration-200 group text-slate-800 text-sm flex flex-col justify-between h-24 shadow-sm">
                         <span class="font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Syarat Kelulusan SKEM</span>
@@ -79,7 +72,6 @@
         </div>
     </main>
 
-    <!-- FOOTER -->
     <footer class="p-6">
         <div class="max-w-4xl mx-auto flex items-start space-x-3 bg-white p-6 shadow-sm border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
             <input 
@@ -98,14 +90,13 @@
         </div>
     </footer>
 
-    <!-- LOGIKA JAVASCRIPT -->
     <script>
-        const chatContainer = document.getElementById('chat-container'); // Container untuk scroll
-        const chatWrapper = document.getElementById('chat-wrapper');     // Wrapper untuk menampung balon chat di tengah
+        const chatContainer = document.getElementById('chat-container'); 
+        const chatWrapper = document.getElementById('chat-wrapper');     
         const userInput = document.getElementById('user-input');
-        const API_URL = "http://127.0.0.1:8000/tanya"; // Alamat backend FastAPI Anda
+        const API_URL = "http://127.0.0.1:8000/tanya"; 
 
-        // 1. Variabel global untuk menyimpan riwayat chat dari frontend
+        // Variabel global untuk menyimpan riwayat chat dari frontend
         let riwayatChat = [];
 
         // Fungsi pembantu untuk membuat auto-scroll ke bawah saat ada pesan baru
@@ -119,6 +110,7 @@
         // Menangkap tombol Enter
         function handleKeyPress(event) {
             if (event.key === 'Enter') {
+                event.preventDefault(); 
                 kirimPertanyaan();
             }
         }
@@ -142,25 +134,25 @@
                 chatWrapper.classList.add('justify-start', 'items-stretch');
             }
 
-            // 1. Tampilkan pesan user ke layar
+            // Tampilkan pesan user ke layar
             tambahPesanUser(queryText);
             userInput.value = ''; // Kosongkan kolom input
             scrollToBottom();
 
-            // 2. Simpan pertanyaan user ke riwayatChat lokal sebelum dikirim
+            // Simpan pertanyaan user ke riwayatChat lokal sebelum dikirim
             riwayatChat.push({ role: "user", content: queryText });
 
-            // LOG KONSOL FRONTEND: Mengirim data ke API
+            // Menampilkan pertanyaan dan riwayat chat yang dikirim ke backend
             console.log("%c[FRONTEND LOG] Mengirim Data ke FastAPI:", "color: #2563eb; font-weight: bold;");
             console.log("  - Pertanyaan Saat Ini:", queryText);
             console.log("  - Riwayat yang Dikirim:", JSON.parse(JSON.stringify(riwayatChat)));
 
-            // 3. Tampilkan loading indicator (efek sedang mengetik)
+            // Tampilkan loading indicator 
             const loadingId = tambahLoading();
             scrollToBottom();
 
             try {
-                // 4. Kirim permintaan POST ke Backend FastAPI beserta data riwayatChat
+                // Kirim permintaan POST ke Backend FastAPI beserta data riwayatChat
                 const response = await fetch(API_URL, {
                     method: "POST",
                     headers: {
@@ -182,15 +174,15 @@
                 const data = await response.json();
 
                 if (data.status === "success") {
-                    // LOG KONSOL FRONTEND: Respon berhasil diterima
+                    // Respon berhasil diterima
                     console.log("%c[FRONTEND LOG] Respon Berhasil Diterima:", "color: #16a34a; font-weight: bold;");
                     console.log("  - Jawaban LLM:", data.jawaban);
                     console.log("  - Sumber RAG:", data.sumber);
 
-                    // 5. Tampilkan jawaban bot beserta rujukan sumbernya
+                    // Tampilkan jawaban bot beserta rujukan sumbernya
                     tambahPesanBot(data.jawaban, data.sumber);
                     
-                    // 6. Simpan jawaban asisten ke riwayatChat agar terekam untuk obrolan berikutnya
+                    // Simpan jawaban asisten ke riwayatChat agar terekam untuk obrolan berikutnya
                     riwayatChat.push({ role: "assistant", content: data.jawaban });
                     
                     // Membatasi panjang riwayat (maksimal 12 pesan terakhir) agar tidak melebihi batas token LLM

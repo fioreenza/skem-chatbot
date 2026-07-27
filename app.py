@@ -13,34 +13,107 @@ load_dotenv()
 if not os.getenv("OPENAI_API_KEY"):
     raise ValueError("OPENAI_API_KEY tidak ditemukan di file .env. Harap isi terlebih dahulu.")
 
-# Impor dari pustaka yang sudah berhasil Anda gunakan sebelumnya
+# Impor dari pustaka yang diperlukan
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import FAISS
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.documents import Document  
 from langchain_classic.chains import create_retrieval_chain
 from langchain_classic.chains.combine_documents import create_stuff_documents_chain
 
-# Variabel global untuk menyimpan model RAG setelah dimuat
+# Membuat kelas untuk menyimpan dan mencocokkan pertanyaan yang mirip secara semantik
+class LocalSemanticCache:
+    """
+    Menyimpan dan mencocokkan pertanyaan yang mirip secara semantik 
+    menggunakan FAISS untuk menghemat biaya token OpenAI.
+    """
+    def __init__(self, embeddings, threshold=0.15, cache_dir="../semantic_cache_db"):
+        self.embeddings = embeddings
+        self.threshold = threshold  
+        self.cache_dir = cache_dir
+        self.vector_store = None
+        self.load_cache()
+
+    def load_cache(self):
+        """Memuat database cache jika sudah ada di lokal."""
+        if os.path.exists(self.cache_dir):
+            try:
+                self.vector_store = FAISS.load_local(
+                    self.cache_dir, 
+                    self.embeddings, 
+                    allow_dangerous_deserialization=True
+                )
+                print("[CACHE-INFO] Berhasil memuat semantic cache dari lokal.")
+            except Exception as e:
+                print(f"[CACHE-ERROR] Gagal memuat cache: {e}. Membuat cache baru.")
+                self.vector_store = None
+
+    def save_cache(self):
+        """Menyimpan database cache ke penyimpanan lokal."""
+        if self.vector_store:
+            try:
+                self.vector_store.save_local(self.cache_dir)
+                print("[CACHE-INFO] Berhasil menyimpan semantic cache ke lokal.")
+            except Exception as e:
+                print(f"[CACHE-ERROR] Gagal menyimpan cache ke disk: {e}")
+
+    def lookup(self, prompt: str):
+        """Mencari apakah ada pertanyaan serupa yang sudah pernah dijawab sebelumnya."""
+        if not self.vector_store:
+            return None
+        try:
+            # Menggunakan k=1 untuk mengambil 1 pertanyaan paling mirip
+            results = self.vector_store.similarity_search_with_score(prompt, k=1)
+            if results:
+                doc, score = results[0]
+                # FAISS L2 Distance: Semakin mendekati 0 berarti semakin identik pertanyaannya.
+                if score <= self.threshold:
+                    return {
+                        "jawaban": doc.metadata["jawaban"],
+                        "sumber": doc.metadata["sumber"],
+                        "score": score
+                    }
+        except Exception as e:
+            print(f"[CACHE-ERROR] Terjadi kesalahan saat lookup cache: {e}")
+        return None
+
+    def add(self, prompt: str, jawaban: str, sumber: list):
+        """Menyimpan pertanyaan dan jawaban baru ke dalam database cache."""
+        doc = Document(
+            page_content=prompt,
+            metadata={"jawaban": jawaban, "sumber": sumber}
+        )
+        try:
+            if self.vector_store is None:
+                self.vector_store = FAISS.from_documents([doc], self.embeddings)
+            else:
+                self.vector_store.add_documents([doc])
+            self.save_cache()
+        except Exception as e:
+            print(f"[CACHE-ERROR] Gagal menyimpan ke cache: {e}")
+
+
+# Variabel global untuk menyimpan model RAG dan Semantic Cache setelah dimuat
 rag_pipeline = None
+semantic_cache = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Fungsi siklus hidup FastAPI untuk menyiapkan database vektor sekali saja
-    saat web server pertama kali dinyalakan.
+    Fungsi siklus hidup FastAPI untuk menyiapkan database vektor dan semantic cache
+    sekali saja saat web server pertama kali dinyalakan.
     """
-    global rag_pipeline
-    # Baca smeua file PDF di folder data
+    global rag_pipeline, semantic_cache
     
     if not os.path.exists("data"):
         raise FileNotFoundError("Folder 'data' tidak ditemukan. Harap buat folder 'data' dan letakkan file PDF di dalamnya.")
 
     print(f"\n--- [Mulai] Menginisialisasi RAG untuk file PDF di folder 'data' ---\n")
     try:
-        # 1. MEMBACA PDF
+        # Memuat dokumen pdf
         loader = DirectoryLoader(
             "data",
             glob="**/*.pdf",
@@ -48,7 +121,7 @@ async def lifespan(app: FastAPI):
         )
         documents = loader.load()
         
-        # 2. MEMOTONG TEKS (Chunking)
+        # Memotong teks (chunking) agar lebih mudah diproses oleh LLM   
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,       
             chunk_overlap=200,     
@@ -56,14 +129,17 @@ async def lifespan(app: FastAPI):
         )
         chunks = text_splitter.split_documents(documents)
 
-        # 3. MEMBUAT EMBEDDING & VECTOR STORE
+        # Membuat embeddings dan menyimpan ke FAISS vector store
         embeddings = OpenAIEmbeddings()
         vector_store = FAISS.from_documents(chunks, embeddings)
 
-        # 4. RETRIEVER
+        # Inisialisasi semantic cache lokal untuk menyimpan pertanyaan yang mirip secara semantik
+        semantic_cache = LocalSemanticCache(embeddings=embeddings, threshold=0.15)
+
+        # Membuat retriever dari vector store untuk digunakan dalam pipeline RAG
         retriever = vector_store.as_retriever(search_kwargs={"k": 3})
 
-        # 5. PROMPTING & CHATBOT SETUP 
+        # Membuat LLM ChatOpenAI dengan model GPT-4o-mini 
         llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
         system_prompt = (
@@ -111,7 +187,7 @@ class TanyaRequest(BaseModel):
 
 @app.post("/tanya")
 async def tanya_chatbot(request: TanyaRequest):
-    global rag_pipeline
+    global rag_pipeline, semantic_cache
     if not rag_pipeline:
         raise HTTPException(status_code=500, detail="Sistem RAG belum siap atau gagal dimuat.")
     
@@ -119,7 +195,7 @@ async def tanya_chatbot(request: TanyaRequest):
         raise HTTPException(status_code=400, detail="Pertanyaan tidak boleh kosong.")
         
     try:
-        # --- LOG TERMINAL: MENAMPILKAN INPUT YANG MASUK ---
+        # Log terminal untuk menampilkan pertanyaan dan riwayat chat yang diterima
         print("\n" + "="*60)
         print("[DATABASE LOG] Permintaan Pertanyaan Diterima:")
         print(f"  - Pertanyaan Saat Ini : '{request.pertanyaan}'")
@@ -127,11 +203,27 @@ async def tanya_chatbot(request: TanyaRequest):
         if request.riwayat:
             print("  - Detail Isi Riwayat  :")
             for index, msg in enumerate(request.riwayat):
-                # Cetak ringkasan isi chat lama
                 role_label = msg.get('role', 'unknown').upper()
                 content_preview = msg.get('content', '')[:60].replace('\n', ' ')
                 print(f"    {index + 1}. [{role_label}]: \"{content_preview}...\"")
         print("="*60)
+
+        # Periksa semantic cache untuk pertanyaan yang mirip agar menghemat biaya token OpenAI
+        if semantic_cache:
+            cache_hit = semantic_cache.lookup(request.pertanyaan)
+            if cache_hit:
+                # Menampilkan log saat cache berhasil ditemukan
+                print("\n" + "⚡"*30)
+                print(f"[CACHE HIT] Ditemukan kecocokan semantik (Skor Jarak: {cache_hit['score']:.4f})")
+                print(f"  - Mengembalikan jawaban langsung dari cache lokal tanpa biaya API.")
+                print("⚡"*30 + "\n")
+                
+                return {
+                    "status": "success",
+                    "jawaban": cache_hit["jawaban"],
+                    "sumber": cache_hit["sumber"],
+                    "cached": True
+                }
 
         # Mengubah format riwayat dari JSON [{"role": "user", "content": "..."}] 
         # menjadi objek pesan resmi LangChain agar dipahami oleh LLM
@@ -151,12 +243,8 @@ async def tanya_chatbot(request: TanyaRequest):
         # Menyusun data rujukan
         sumber_rujukan = []
         for doc in response.get("context", []):
-            # Mengambil path lengkap file dari metadata 'source'
             path_sumber = doc.metadata.get('source', 'Tidak diketahui')
-            
-            # Mengambil nama file saja (misal: "laporan.pdf") dari path lengkap
             nama_dokumen = os.path.basename(path_sumber)
-            
             page_num = doc.metadata.get('page', 0) + 1
             kutipan = doc.page_content.strip().replace("\n", " ")
             if len(kutipan) > 150:
@@ -169,27 +257,32 @@ async def tanya_chatbot(request: TanyaRequest):
                 "kutipan": kutipan
             })
 
-        # --- LOG TERMINAL: MENAMPILKAN HASIL PEMROSESAN ---
+        # Simpan jawaban baru ke semantic cache
+        if semantic_cache:
+            # Hindari menyimpan jawaban fallback error/tidak tahu ke dalam cache
+            fallback_msg = "Maaf, saya tidak tahu karena informasi tersebut tidak ada di dalam dokumen."
+            if fallback_msg not in response["answer"]:
+                semantic_cache.add(request.pertanyaan, response["answer"], sumber_rujukan)
+                print(f"[CACHE UPDATE] Pertanyaan baru berhasil didaftarkan ke database cache.")
+
+        # Log terminal untuk menampilkan jawaban dan rujukan yang dihasilkan
         print("\n" + "="*60)
-        print("[DATABASE LOG] Hasil Pemrosesan LLM & RAG:")
+        print("[DATABASE LOG] Hasil Pemrosesan LLM & RAG (CACHE MISS):")
         print(f"  - Jawaban Dihasilkan  : '{response['answer']}'")
         print(f"  - Dokumen Ditemukan   : {len(sumber_rujukan)} rujukan")
         for index, ref in enumerate(sumber_rujukan):
-            # Sekarang log terminal menampilkan nama dokumen juga
             print(f"    * {ref['dokumen']} (Hal. {ref['halaman']}) -> \"{ref['kutipan'][:60]}...\"")
         print("="*60 + "\n")
             
         return {
             "status": "success",
             "jawaban": response["answer"],
-            "sumber": sumber_rujukan
+            "sumber": sumber_rujukan,
+            "cached": False
         }
     except Exception as e:
-        # --- LOG TERMINAL: MENAMPILKAN BILA TERJADI KESALAHAN ---
+        # Log terminal untuk menampilkan bila terjadi kesalahan
         print("\n" + "!"*60)
         print(f"[ERROR LOG] Kesalahan fatal saat memproses: {str(e)}")
         print("!"*60 + "\n")
         raise HTTPException(status_code=500, detail=f"Terjadi kesalahan saat memproses: {str(e)}")
-
-## to do
-# Semantic Caching (Penyimpanan Riwayat Jawaban) Untuk menghemat biaya, developer chatbot menggunakan Semantic Caching (misalnya menggunakan Redis atau GPTCache).Cara kerja: Ketika pengguna bertanya, sistem akan memeriksa database cache terlebih dahulu. Jika ada pertanyaan yang sangat mirip yang pernah dijawab sebelumnya, sistem akan langsung memberikan jawaban tersebut tanpa mengirimkan request ke OpenAI. Ini bisa menghemat biaya token hingga 30% - 50%.
