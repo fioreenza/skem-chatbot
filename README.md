@@ -65,8 +65,8 @@ Berikut adalah bukti pengujian aplikasi chatbot:
    ![Pengujian Pertanyaan Sederhana](screenshots/pertanyaan1.png)
    ![Pengujian Pertanyaan Sederhana](screenshots/pertanyaan2.png)
    ![Pengujian Pertanyaan Sederhana](screenshots/pertanyaan3.png)
-2. **Pengujian Pertanyaan Bahasa Indonesia dan Inggris**
+3. **Pengujian Pertanyaan Bahasa Indonesia dan Inggris**
    ![Pengujian Pertanyaan Bahasa Indonesia dan Inggris](screenshots/bahasaindonesia.png)
    ![Pengujian Pertanyaan Bahasa Indonesia dan Inggris](screenshots/bahasainggris.png)
-3. **Pengujian Pertanyaan dengan Jawaban yang Tidak Ada di Dokumen**
+4. **Pengujian Pertanyaan dengan Jawaban yang Tidak Ada di Dokumen**
    ![Pengujian Pertanyaan dengan Jawaban yang Tidak Ada di Dokumen](screenshots/jawabantidakada.png)
