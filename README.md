@@ -59,15 +59,6 @@ Jika server berhasil berjalan, Anda akan melihat pesan konfigurasi RAG selesai d
 ### 6. Menjalankan Frontend (HTML)
 Buka File Explorer Anda lalu klik ganda pada file `index.html` untuk membukanya secara langsung di browser. Anda juga dapat menggunakan *Live Server* di Visual Studio Code untuk membuka file ini.
 
-## Alur Pengujian Fitur Cache
-Untuk menguji apakah fitur Semantic Caching bekerja dengan semestinya, Anda dapat memantau log pada terminal backend saat melakukan pengujian berikut:
-
-1. **Pengujian 1 (Cache Miss)**:
-   Ketik pertanyaan pertama Anda (misal: *"Berapa syarat kelulusan poin SKEM?"*). Backend akan mencari di dokumen PDF, mengirimnya ke OpenAI, dan menghasilkan respons. Di terminal akan muncul log `[CACHE UPDATE]` yang menandakan pertanyaan dan jawaban telah didaftarkan ke cache lokal.
-2. **Pengujian 2 (Cache Hit)**:
-   Ajukan pertanyaan yang sama atau gunakan kalimat yang mirip secara makna (misal: *"poin SKEM buat lulus butuh berapa?"*). Sistem akan langsung mengenali kesamaan semantiknya. Terminal akan mencetak log `[CACHE HIT]` dengan skor jarak kemiripan, dan jawaban akan langsung muncul di browser secara instan tanpa membebani kuota API OpenAI Anda.
-
-
 ## Bukti Pengujian
 Berikut adalah bukti pengujian aplikasi chatbot:
 1. **Pengujian Pertanyaan Sederhana**
