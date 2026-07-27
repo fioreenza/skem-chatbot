@@ -41,10 +41,10 @@ pip install -r requirements.txt
 ```
 
 ### 4. Konfigurasi API Key (`.env`)
-Buat sebuah file baru bernama `.env` di direktori utama proyek Anda, lalu masukkan OpenAI API Key Anda dengan format berikut:
+Copy file `.env.example` dan rename file menjadi `.env` di direktori utama proyek Anda, lalu masukkan API key Anda.
 
 ```env
-OPENAI_API_KEY=your-real-api-key...
+OPENAI_API_KEY=apikeydisini
 ```
 
 ### 5. Menjalankan Backend (FastAPI)
